@@ -1,3 +1,5 @@
+import os
+os.chdir('/home/pi/Documents/PythonCodes/')
 from picamera import PiCamera
 from skimage import measure
 from imutils import contours
@@ -17,9 +19,8 @@ def stop_servos(signum, sf):
     kit.continuous_servo[1].throttle = 0
     print("stop")
     exit()
-    
-signal.signal(signal.SIGINT, stop_servos)
 
+signal.signal(signal.SIGINT, stop_servos)
 #Setup the Servos (x servo (azimuth) into pin 11) (y servo into ___)
 #GPIO.setmode(GPIO.BOARD)
 #xpin = 12
@@ -59,7 +60,7 @@ throttlelast = 0
 xRes = 640
 yRes = 480
 fps = 30
-THRESHHOLD = 242
+THRESHHOLD = 255
 SIGN = 1
 l = 0
 throttle1 = 0
@@ -70,37 +71,24 @@ vs = VideoStream(usePiCamera=False, resolution=(xRes,yRes)).start()
 #vs = imutils.rotate(vsUnrotated, 180, scale=1)
 time.sleep(0.3)
 # TODO redo naming so that it won't overwrite old file if crashes
-out = cv2.VideoWriter('processed.avi', cv2.VideoWriter_fourcc('M','J','P','G'), fps, (xRes,yRes),isColor=True)
+out = cv2.VideoWriter('processed.avi', cv2.VideoWriter_fourcc('M','J','P','G'), fps, (xRes,yRes),isColor=False)
 j = 0
 
 while j <= 300:
     m = 0
-    if GPIO.input(15) == GPIO.HIGH:
+    if GPIO.input(15) == GPIO.HIGH or GPIO.input(14) == GPIO.HIGH:
         print("Button was pushed!")
-        kit.continuous_servo[1].throttle = -throttlelast
-        if l == 0:
-            if throttlelast > 0 and throttlelast < 0.1:
-                throttlelast = -0.2
-            elif throttlelast < 0 and throttlelast > -0.1:
-                throttlelast = 0.2
-            else:
-                throttlelast = -throttlelast
-        else:
-            throttlelast = throttlelast
-            l = 1
-        time.sleep(1)
-        l = 0
-    if GPIO.input(14) == GPIO.HIGH:
-        print("OTHER BUTTON was pushed!")
-        kit.continuous_servo[1].throttle = -throttlelast
-        if l == 0:
+        if abs(throttlelast) >= 0.15:
+            kit.continuous_servo[1].throttle = -throttlelast
             throttlelast = -throttlelast
-           
         else:
-            throttlelast = throttlelast
-            l = 1
-        time.sleep(1)
-        l = 0
+            if throttlelast < 0:
+                kit.continuous_servo[1].throttle = 0.15
+                throttlelast = 0.15
+            elif throttlelast >= 0:
+                kit.continuous_servo[1].throttle = -0.15
+                throttlelast = 0.15
+        time.sleep(2)
     BlurRadius =11
     #camera.start_preview(alpha=255)
     #sleep(0.1)
@@ -160,33 +148,25 @@ while j <= 300:
     # TODO: check if empty
     if cnts == []:
         print("LOST SUN :o")
-        if GPIO.input(15) == GPIO.HIGH:
+        if GPIO.input(15) == GPIO.HIGH or GPIO.input(14) == GPIO.HIGH:
             print("Button was pushed!")
-            kit.continuous_servo[1].throttle = -throttlelast
-            if l == 0:
+            if abs(throttlelast) >= 0.15:
+                kit.continuous_servo[1].throttle = -throttlelast
                 throttlelast = -throttlelast
             else:
-                throttlelast = throttlelast
-                l = 1
-            time.sleep(1)
-            l = 0
-        if GPIO.input(14) == GPIO.HIGH:
-            print("OTHER BUTTON was pushed!")
-            kit.continuous_servo[1].throttle = -throttlelast
-            if l == 0:
-                throttlelast = -throttlelast
-           
-            else:
-                throttlelast = throttlelast
-                l = 1
-            time.sleep(1)
-            l = 0
+                if throttlelast < 0:
+                    kit.continuous_servo[1].throttle = 0.15
+                    throttlelast = 0.15
+                elif throttlelast >= 0:
+                    kit.continuous_servo[1].throttle = -0.15
+                    throttlelast = 0.15
+            time.sleep(2)
         
-        if throttle1 < 0.1:
-            throttle1 = 0.2
-        kit.continuous_servo[1].throttle = throttle1/2
-        i = 0
-        angle = float(0)
+       # if throttle1 < 0.1:
+       #     throttle1 = 0.2
+       # kit.continuous_servo[1].throttle = throttle1/2
+       # i = 0
+       # angle = float(0)
 
         while True:
             image = vs.read()
@@ -248,11 +228,12 @@ while j <= 300:
             else:
                 anglelost = anglelost
             print("anglelost", anglelost, "SIGN", SIGN)
-            out.write(image)
+            out.write(thresh)
+            #out.write(image)
             #kit.servo[0].angle = 4*(math.cos(angle)+1)
             #angle += math.pi/4
             kit.servo[0].angle = anglelost
-            i += 1
+#             i += 1
             time.sleep(0.2)
             
     cnts = contours.sort_contours(cnts)[0]
@@ -270,7 +251,9 @@ while j <= 300:
     # show the output image
     #cv2.imshow("Image", image)
     #cv2.waitKey(0)
-    out.write(image)
+    cv2.imwrite('thresh' + str(j) + '.png', thresh)
+    out.write(thresh)
+#     out.write(image)
 
     xcenter = xRes/2
     ycenter = yRes/2
@@ -280,7 +263,7 @@ while j <= 300:
     Errorx = cX-xcenter
     Errory = cY-ycenter
 
-    Pvalx = -0.001
+    Pvalx = -0.0008
     Pvaly = 0.01
     Px = Pvalx * Errorx
     Py = Pvaly * Errory   
@@ -307,10 +290,10 @@ while j <= 300:
         angle0 = 80
     else:
         angle0 = angle0
-    if throttle1 < -1:
-        throttle1 = 0
-    elif throttle1 >1:
-        throttle1 = 0
+    if throttle1 < -0.2:
+        throttle1 = -0.2
+    elif throttle1 >0.2:
+        throttle1 = 0.2
     else:
         throttle1 =throttle1
     if j<5:
