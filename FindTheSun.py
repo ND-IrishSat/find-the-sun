@@ -15,13 +15,14 @@ import os
 ## GLOBALS ##
 
 # set up the Servos (x servo (azimuth) into pin 11) (y servo into ___)
-maxangle = 80
+maxangle = 40
 kit = ServoKit(channels=16)
-kit.servo[0].actuation_range = maxangle # set the total range of servo in port 0 to 60
+kit.servo[0].actuation_range = 80 # set the total range of servo in port 0 to 60
 kit.servo[0].set_pulse_width_range(1000, 2000) # can tune the max and min pwm to max the servo go to desired angles
-kit.servo[2].actuation_range = maxangle # set the total range of servo in port 0 to 60
+kit.servo[2].actuation_range = 80 # set the total range of servo in port 0 to 60
 kit.servo[2].set_pulse_width_range(1000, 2000) # can tune the max and min pwm to max the servo go to desired angles
 kit.servo[0].angle = maxangle/2
+kit.servo[2].angle = maxangle/2
 time.sleep(0.3)
 kit.continuous_servo[1].throttle = 1
 time.sleep(0.01)
@@ -46,7 +47,7 @@ BLUR_RADIUS = 11
 l = 0
 throttle1 = 0
 white = 255
-
+maxthrottle = 0.4
 # set up video
 vs = VideoStream(usePiCamera=False, resolution=(xRes,yRes)).start()
 time.sleep(0.3)
@@ -108,20 +109,20 @@ signal.signal(signal.SIGINT, stop_servos)
 j = 0
 
 while True:
-    image, cnts = locateSun()
-
+    image, cnts = locate_sun()
+    
     # check if empty
     if cnts == []:
         print("LOST SUN :o")
         if throttlelast >= 0:
-            throttlelast = 0.13
-            kit.continuous_servo[1].throttle = 0.13
+            throttlelast = 0.2
+            kit.continuous_servo[1].throttle = 0.2
         else:
-            throttlelast = -0.13
-            kit.continuous_servo[1].throttle = -0.13
-
+            throttlelast = -0.2
+            kit.continuous_servo[1].throttle = -0.2
+            
         while True:
-            image, cnts = locateSun()
+            image, cnts = locate_sun()
             if cnts != []:
                 print("FOUND SUN")
                 kit.continuous_servo[1].throttle = 0
@@ -132,21 +133,23 @@ while True:
             if anglelost < 0:
                 anglelost = 0
                 SIGN = -SIGN
-            elif anglelost >80:
-                anglelost = 80
+            elif anglelost > maxangle:
+                anglelost = maxangle
                 SIGN = -SIGN
             else:
                 anglelost = anglelost
             print("anglelost", anglelost, "SIGN", SIGN, "THROTTLE", throttlelast)
             out.write(image)
+            print("angle: " + str(anglelost))
             kit.servo[0].angle = anglelost
-
+            kit.servo[2].angle = anglelost
+            
             if abs(throttlelast) < 0.08:
                 throttlelast = 0.10
                 kit.continuous_servo[1].throttle = throttlelast
-
+            
             time.sleep(0.2)
-
+            
     cnts = contours.sort_contours(cnts)[0]
 
     # loop over the contours
@@ -156,7 +159,8 @@ while True:
         ((cX, cY), radius) = cv2.minEnclosingCircle(c)
         cv2.circle(image, (int(cX), int(cY)), int(radius),
             (0, 0, 255), 3)
-
+        cv2.circle(image, (int(xCenter), int(yCenter)), 65, (0, 255, 0), 3)
+    
     # write output image to avi
     out.write(image)
     # save every 1000th frame individually
@@ -167,15 +171,15 @@ while True:
     Errorx = cX-xCenter
     Errory = cY-yCenter
 
-    Pvalx = -0.0006
+    Pvalx = 0.0012
     Pvaly = 0.01
     Px = Pvalx * Errorx
-    Py = Pvaly * Errory
-    Ivalx = -0.00009
+    Py = Pvaly * Errory   
+    Ivalx = 0.00013
     Ivaly = 0.0001
     Ix = Ix + ((Errorx)*Ivalx)
     Iy = Iy + ((Errory)*Ivaly)
-    Dvalx = 0.000
+    Dvalx = 0#-0.007
     Dvaly = -0.003
     Dx = (Errorxlast - Errorx)*Dvalx
     Dy = (Errorylast - Errory)*Dvaly
@@ -191,28 +195,31 @@ while True:
         SIGN = -1
     if angle0 < 0:
         angle0 = 0
-    elif angle0 > 80:
-        angle0 = 80
+    elif angle0 > maxangle:
+        angle0 = maxangle
     else:
         angle0 = angle0
-    if throttle1 < -0.2:
-        throttle1 = -0.2
-    elif throttle1 > 0.2:
-        throttle1 = 0.2
+    if throttle1 < -maxthrottle:
+        throttle1 = -maxthrottle
+    elif throttle1 > maxthrottle:
+        throttle1 = maxthrottle
     else:
         throttle1 = throttle1
     if j < 5:
         kit.servo[0].angle = maxangle/2
+        kit.servo[2].angle = maxangle/2
 
     else:
+        print("angle: " + str(angle0))
         kit.servo[0].angle = angle0
-        kit.continuous_servo[1].throttle = throttle1
+        kit.servo[2].angle = angle0
+        kit.continuous_servo[1].throttle = throttle1     
     anglelast = angle0
     throttlelast = throttle1
-
-    print("P: ", Px, "I: ", Ix, "D: ", Dx, "throttle: ", throttle1)
-
+    
+    print("P: ", Px, "I: ", Ix, "D: ", Dx, "throttle: ", throttle1)  
+ 
     j += 1
     time.sleep(0.00)
 
-kit.continuous_servo[1].throttle = 0
+kit.continuous_servo[1].throttle = 0   
