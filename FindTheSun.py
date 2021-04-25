@@ -107,6 +107,8 @@ def locate_sun():
 ## MAIN LOOP ##
 signal.signal(signal.SIGINT, stop_servos)
 j = 0
+f = open("valid_frames.txt", "w+")
+output_string = "" 
 
 while True:
     image, cnts = locate_sun()
@@ -147,7 +149,10 @@ while True:
             if abs(throttlelast) < 0.08:
                 throttlelast = 0.10
                 kit.continuous_servo[1].throttle = throttlelast
-            
+
+            output_string = str(time.time()) + ", 0\n"
+            f.write(output_string)
+            j += 1
             time.sleep(0.2)
             
     cnts = contours.sort_contours(cnts)[0]
@@ -220,6 +225,13 @@ while True:
     print("P: ", Px, "I: ", Ix, "D: ", Dx, "throttle: ", throttle1)  
  
     j += 1
+    if cX <= xCenter + 65 and cx >= xCenter - 65 and cY <= yCenter + 65 and cY >= yCenter - 65:
+        output_string = str(time.time()) + ", 1\n"
+    else:
+        output_string = str(time.time()) + ", 0\n"
+    f.write(output_string)
+
     time.sleep(0.00)
 
-kit.continuous_servo[1].throttle = 0   
+kit.continuous_servo[1].throttle = 0  
+f.close() 
