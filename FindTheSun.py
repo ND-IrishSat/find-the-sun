@@ -165,12 +165,6 @@ while True:
         cv2.circle(image, (int(cX), int(cY)), int(radius),
             (0, 0, 255), 3)
         cv2.circle(image, (int(xCenter), int(yCenter)), 65, (0, 255, 0), 3)
-    
-    # write output image to avi
-    out.write(image)
-    # save every 1000th frame individually
-    if j % 1000 == 0:
-        cv2.imwrite("frame" + str(j) + ".png", image)
 
     # lets do some PID shiz
     Errorx = cX-xCenter
@@ -225,11 +219,17 @@ while True:
     print("P: ", Px, "I: ", Ix, "D: ", Dx, "throttle: ", throttle1)  
  
     j += 1
-    if cX <= xCenter + 65 and cx >= xCenter - 65 and cY <= yCenter + 65 and cY >= yCenter - 65:
+    if Errorx ** 2 + Errory ** 2 <= 65:
         output_string = str(time.time()) + ", 1\n"
     else:
         output_string = str(time.time()) + ", 0\n"
     f.write(output_string)
+    
+    # write output image to avi file
+    out.write(image)
+    # TODO: a frame every 5 minutes
+    if j % 1000 == 0:
+        cv2.imwrite("~/frames/frame.bmp", image)
 
     time.sleep(0.00)
 
