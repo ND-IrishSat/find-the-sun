@@ -15,12 +15,12 @@ import os
 ## GLOBALS ##
 
 # set up the Servos (x servo (azimuth) into pin 11) (y servo into ___)
-maxangle = 40
+maxangle = 60
 kit = ServoKit(channels=16)
-kit.servo[0].actuation_range = 80 # set the total range of servo in port 0 to 60
-kit.servo[0].set_pulse_width_range(1000, 2000) # can tune the max and min pwm to max the servo go to desired angles
-kit.servo[2].actuation_range = 80 # set the total range of servo in port 0 to 60
-kit.servo[2].set_pulse_width_range(1000, 2000) # can tune the max and min pwm to max the servo go to desired angles
+kit.servo[0].actuation_range = 270 # set the total range of servo in port 0 to 60
+kit.servo[0].set_pulse_width_range(500, 2500) # can tune the max and min pwm to max the servo go to desired angles
+kit.servo[2].actuation_range = 270 # set the total range of servo in port 0 to 60
+kit.servo[2].set_pulse_width_range(500, 2500) # can tune the max and min pwm to max the servo go to desired angles
 kit.servo[0].angle = maxangle/2
 kit.servo[2].angle = maxangle/2
 time.sleep(0.3)
@@ -164,24 +164,24 @@ while True:
         ((cX, cY), radius) = cv2.minEnclosingCircle(c)
         cv2.circle(image, (int(cX), int(cY)), int(radius),
             (0, 0, 255), 3)
-        cv2.circle(image, (int(xCenter), int(yCenter)), 65, (0, 255, 0), 3)
+        cv2.circle(image, (int(xCenter), int(yCenter)), 75, (0, 255, 0), 3)
 
     # lets do some PID shiz
     Errorx = cX-xCenter
     Errory = cY-yCenter
 
     Pvalx = 0.0012
-    Pvaly = 0.01
+    Pvaly = 0.015
     Px = Pvalx * Errorx
     Py = Pvaly * Errory   
-    Ivalx = 0.00013
+    Ivalx = 0.00015
     Ivaly = 0.0001
     Ix = Ix + ((Errorx)*Ivalx)
     Iy = Iy + ((Errory)*Ivaly)
-    Dvalx = 0#-0.007
-    Dvaly = -0.003
-    Dx = (Errorxlast - Errorx)*Dvalx
-    Dy = (Errorylast - Errory)*Dvaly
+    Dvalx = 0.0006
+    Dvaly = 0.0002
+    Dx = (Errorxlast)*Dvalx
+    Dy = (Errorylast)*Dvaly
     Errorxlast = Errorx
     Errorylast = Errory
     throttle1 = Px + Ix + Dx
@@ -216,10 +216,10 @@ while True:
     anglelast = angle0
     throttlelast = throttle1
     
-    print("P: ", Px, "I: ", Ix, "D: ", Dx, "throttle: ", throttle1)  
+    print("P: ", Py, "I: ", Iy, "D: ", Dy, "throttle: ", throttle1)  
  
     j += 1
-    if Errorx ** 2 + Errory ** 2 <= 65:
+    if Errorx ** 2 + Errory ** 2 <= 75:
         output_string = str(time.time()) + ", 1\n"
     else:
         output_string = str(time.time()) + ", 0\n"
