@@ -15,7 +15,7 @@ import os
 ## GLOBALS ##
 
 # set up the Servos (x servo (azimuth) into pin 11) (y servo into ___)
-maxangle = 60
+maxangle = 65
 kit = ServoKit(channels=16)
 kit.servo[0].actuation_range = 270 # set the total range of servo in port 0 to 60
 kit.servo[0].set_pulse_width_range(500, 2500) # can tune the max and min pwm to max the servo go to desired angles
@@ -47,17 +47,18 @@ BLUR_RADIUS = 11
 l = 0
 throttle1 = 0
 white = 255
-maxthrottle = 0.4
+maxthrottle = 0.3
 # set up video
 vs = VideoStream(usePiCamera=False, resolution=(xRes,yRes)).start()
 time.sleep(0.3)
-out = cv2.VideoWriter("processed" + str(time.time()) + ".avi", cv2.VideoWriter_fourcc('M','J','P','G'), fps, (xRes,yRes), isColor=True)
+out = cv2.VideoWriter("./videos/processed" + str(time.time()) + ".avi", cv2.VideoWriter_fourcc('M','J','P','G'), fps, (xRes,yRes), isColor=True)
 
 ## FUNCTIONS ##
 # signal handler for ctrl+c
 def stop_servos(signum, sf):
     kit.continuous_servo[1].throttle = 0
-    print("stopping")
+    end = time.perf_counter()
+    print(f"stopping: {round(end-start,2)} seconds to process {j} frames")
     exit()
 
 def locate_sun():
@@ -107,9 +108,12 @@ def locate_sun():
 ## MAIN LOOP ##
 signal.signal(signal.SIGINT, stop_servos)
 j = 0
-f = open("valid_frames.txt", "w+")
-output_string = "" 
+#create_time = str(time.time())
+f = open("./AreWeLookingAtTheSun/header.txt", "w+") #AreWeLookingAtTheSun
+f.write("header\n")
+f.close()
 
+start = time.perf_counter()
 while True:
     image, cnts = locate_sun()
     
@@ -141,7 +145,6 @@ while True:
             else:
                 anglelost = anglelost
             print("anglelost", anglelost, "SIGN", SIGN, "THROTTLE", throttlelast)
-            out.write(image)
             print("angle: " + str(anglelost))
             kit.servo[0].angle = anglelost
             kit.servo[2].angle = anglelost
@@ -151,7 +154,21 @@ while True:
                 kit.continuous_servo[1].throttle = throttlelast
 
             output_string = str(time.time()) + ", 0\n"
+            f = open("./AreWeLookingAtTheSun/valid_frames" + str(time.time()) + ".txt", "a")
             f.write(output_string)
+            f.close()
+
+            # write output image to avi file
+            out.write(image)
+            # save a frame every 5 minutes (3240 frames)
+            if j % 3240 == 0:
+                print("saving frames...")
+                cv2.imwrite("./frames/frame.bmp", image)
+            # every 10 frames close and save file before reopening
+            #if j % 10 == 0:
+             #   print("backing up")
+              #  os.system("cp " + "./AreWeLookingAtTheSun/valid_frames" + create_time + ".txt " + "./AreWeLookingAtTheSun/backup" + str(time.time()) + ".txt")
+
             j += 1
             time.sleep(0.2)
             
@@ -178,7 +195,7 @@ while True:
     Ivaly = 0.0001
     Ix = Ix + ((Errorx)*Ivalx)
     Iy = Iy + ((Errory)*Ivaly)
-    Dvalx = 0.0006
+    Dvalx = 0.0026
     Dvaly = 0.0002
     Dx = (Errorxlast)*Dvalx
     Dy = (Errorylast)*Dvaly
@@ -211,27 +228,36 @@ while True:
     else:
         print("angle: " + str(angle0))
         kit.servo[0].angle = angle0
-        kit.servo[2].angle = angle0
+        kit.servo[2].angle = angle0+5.0
         kit.continuous_servo[1].throttle = throttle1     
     anglelast = angle0
     throttlelast = throttle1
     
-    print("P: ", Py, "I: ", Iy, "D: ", Dy, "throttle: ", throttle1)  
- 
-    j += 1
-    if Errorx ** 2 + Errory ** 2 <= 75:
+    print("P: ", Py, "I: ", Iy, "D: ", Dy, "throttle: ", throttle1)
+    
+    radiusnewone = Errorx ** 2 + Errory ** 2
+    if radiusnewone <= 5625:
         output_string = str(time.time()) + ", 1\n"
     else:
         output_string = str(time.time()) + ", 0\n"
+    f = open("./AreWeLookingAtTheSun/valid_frames" + str(time.time()) + ".txt", "a")
     f.write(output_string)
+    f.close()
     
     # write output image to avi file
     out.write(image)
-    # TODO: a frame every 5 minutes
-    if j % 1000 == 0:
-        cv2.imwrite("~/frames/frame.bmp", image)
+    # save a frame every 5 minutes (3240 frames)
+    if j % 3240 == 0:
+        print("saving frames...")
+        cv2.imwrite("./frames/frame.bmp", image)
+    # every 100 frames backup valid_frames file
+    #if j % 10 == 0:
+     #   print("backing up")
+      #  os.system("cp " + "./AreWeLookingAtTheSun/valid_frames" + create_time + ".txt " + "./AreWeLookingAtTheSun/backup" + str(time.time()) + ".txt")
 
+    j += 1
     time.sleep(0.00)
 
 kit.continuous_servo[1].throttle = 0  
 f.close() 
+ 
