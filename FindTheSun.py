@@ -108,8 +108,8 @@ def locate_sun():
 ## MAIN LOOP ##
 signal.signal(signal.SIGINT, stop_servos)
 j = 0
-#create_time = str(time.time())
-f = open("./AreWeLookingAtTheSun/header.txt", "w+") #AreWeLookingAtTheSun
+create_time = str(time.time())
+f = open("./AreWeLookingAtTheSun/valid_frames" + create_time + ".txt", "w+") #AreWeLookingAtTheSun
 f.write("header\n")
 f.close()
 
@@ -154,7 +154,7 @@ while True:
                 kit.continuous_servo[1].throttle = throttlelast
 
             output_string = str(time.time()) + ", 0\n"
-            f = open("./AreWeLookingAtTheSun/valid_frames" + str(time.time()) + ".txt", "a")
+            f = open("./AreWeLookingAtTheSun/valid_frames" + create_time + ".txt", "a")
             f.write(output_string)
             f.close()
 
@@ -164,10 +164,10 @@ while True:
             if j % 3240 == 0:
                 print("saving frames...")
                 cv2.imwrite("./frames/frame.bmp", image)
-            # every 10 frames close and save file before reopening
-            #if j % 10 == 0:
-             #   print("backing up")
-              #  os.system("cp " + "./AreWeLookingAtTheSun/valid_frames" + create_time + ".txt " + "./AreWeLookingAtTheSun/backup" + str(time.time()) + ".txt")
+            # every 100 frames backup valid_frames file
+            if j % 100 == 0:
+                print("backing up")
+                os.system("cp " + "./AreWeLookingAtTheSun/valid_frames" + create_time + ".txt " + "./AreWeLookingAtTheSun/backup" + str(time.time()) + ".txt")
 
             j += 1
             time.sleep(0.2)
@@ -240,7 +240,7 @@ while True:
         output_string = str(time.time()) + ", 1\n"
     else:
         output_string = str(time.time()) + ", 0\n"
-    f = open("./AreWeLookingAtTheSun/valid_frames" + str(time.time()) + ".txt", "a")
+    f = open("./AreWeLookingAtTheSun/valid_frames" + create_time + ".txt", "a")
     f.write(output_string)
     f.close()
     
@@ -251,9 +251,9 @@ while True:
         print("saving frames...")
         cv2.imwrite("./frames/frame.bmp", image)
     # every 100 frames backup valid_frames file
-    #if j % 10 == 0:
-     #   print("backing up")
-      #  os.system("cp " + "./AreWeLookingAtTheSun/valid_frames" + create_time + ".txt " + "./AreWeLookingAtTheSun/backup" + str(time.time()) + ".txt")
+    if j % 100 == 0:
+        print("backing up")
+        os.system("cp " + "./AreWeLookingAtTheSun/valid_frames" + create_time + ".txt " + "./AreWeLookingAtTheSun/backup" + str(time.time()) + ".txt")
 
     j += 1
     time.sleep(0.00)
