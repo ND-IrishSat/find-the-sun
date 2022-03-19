@@ -100,7 +100,7 @@ def locate_sun():
 # accept_data: marks whether frame is valid or not
 def log_frames(out, image, j, accept_data):
     output_string = str(time.time()) + ", " + str(accept_data) + "\n"
-    f = open("./AreWeLookingAtTheSun/valid_frames" + CREATE_TIME + ".txt", "a")
+    f = open("./logs/valid_frames" + CREATE_TIME + ".txt", "a")
     f.write(output_string)
     f.close()
     # write output image to avi file
@@ -112,7 +112,7 @@ def log_frames(out, image, j, accept_data):
     # every 100 frames backup valid_frames file
     if j % 100 == 0:
         print("backing up")
-        os.system("cp " + "./AreWeLookingAtTheSun/valid_frames" + CREATE_TIME + ".txt " + "./AreWeLookingAtTheSun/backup" + "-" + str(time.time()) + ".txt")           
+        os.system("cp " + "./logs/valid_frames" + CREATE_TIME + ".txt " + "./logs/backup" + "-" + str(time.time()) + ".txt")           
 
 
 ## MAIN EXECUTION ##
@@ -155,7 +155,7 @@ if __name__ == '__main__':
     # set up loop counter
     j = 0
     # set up file
-    f = open("./AreWeLookingAtTheSun/valid_frames" + CREATE_TIME + ".txt", "w+")
+    f = open("./logs/valid_frames" + CREATE_TIME + ".txt", "w+")
     f.write("header\n")
     f.close()
 
