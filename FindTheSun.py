@@ -9,7 +9,6 @@
 # - rethink starting directory?
 # - rewrite logging function to file?
 # - catch any errors the camera might throw
-# - add offset (-0.1) to throttle
 from venv import create
 from picamera import PiCamera
 from skimage import measure
@@ -34,31 +33,24 @@ X_RES = 640
 Y_RES = 480
 FPS = 30
 WHITE = 255
+THROTTLE_ZERO = -0.1
+MAX_RADIUS = 75
 
 X_CENTER = X_RES/2
 Y_CENTER = Y_RES/2
 CREATE_TIME = str(time.time())
-
-# global variables
-Ix = 0
-Iy = 0
-Errorxlast = 0
-Errorylast = 0
-anglelast = MAX_ANGLE/2
-throttlelast = 0
-l = 0
-throttle1 = 0
-maxthrottle = 0.3
+MAX_THROTTLE = 0.3 + THROTTLE_ZERO
 
 ## FUNCTIONS ##
 # signal handler for ctrl+c
 def stop_servos(signum, sf):
-    kit.continuous_servo[1].throttle = 0
+    kit.continuous_servo[1].throttle = THROTTLE_ZERO
     end = time.perf_counter()
     print(f"stopping: {round(end-start,2)} seconds to process {j} frames")
     exit()
 
 # main locate sun function
+# returns the image and the countors found
 def locate_sun():
     image = vs.read()
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -95,15 +87,22 @@ def locate_sun():
         if label == placement:
             mask = cv2.add(mask, labelMask)
 
-
-    # find the contours in the mask, then sort them from left to
-    # right
+    # find the contours in the mask, then sort them 
+    # from left to right
     cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cnts = imutils.grab_contours(cnts)
     return image, cnts
 
-# logging frames function
-def log_frames(out, image, j):
+# logging function
+# out: cv2.VideoWriter object
+# image: image to be logged
+# j: iteration of loop, decides whether to backup or save
+# accept_data: marks whether frame is valid or not
+def log_frames(out, image, j, accept_data):
+    output_string = str(time.time()) + ", " + str(accept_data) + "\n"
+    f = open("./AreWeLookingAtTheSun/valid_frames" + CREATE_TIME + ".txt", "a")
+    f.write(output_string)
+    f.close()
     # write output image to avi file
     out.write(image)
     # save a frame every 5 minutes (3240 frames)
@@ -132,9 +131,19 @@ if __name__ == '__main__':
     kit.servo[0].angle = MAX_ANGLE/2
     kit.servo[2].angle = MAX_ANGLE/2
     time.sleep(0.3)
-    kit.continuous_servo[1].throttle = 1
+    kit.continuous_servo[1].throttle = 1 + THROTTLE_ZERO
     time.sleep(0.01)
-    kit.continuous_servo[1].throttle = 0
+    kit.continuous_servo[1].throttle = THROTTLE_ZERO
+
+    # initialize PID values
+    Ix = 0
+    Iy = 0
+    Ex_last = 0
+    Ey_last = 0
+
+    # initialize throttle and angle values
+    angle_last = MAX_ANGLE/2
+    throttle_last = THROTTLE_ZERO
 
     # set up video
     vs = VideoStream(usePiCamera=False, resolution=(X_RES,Y_RES)).start()
@@ -153,64 +162,56 @@ if __name__ == '__main__':
     start = time.perf_counter()
     # main loop
     while True:
+        # get image and contours
         image, cnts = locate_sun()
-        
-        # check if empty
+
+        # if no countours, assume lost sun and start search protocol
         if cnts == []:
             print("LOST SUN :o")
-            if throttlelast >= 0:
-                throttlelast = 0.2
-                kit.continuous_servo[1].throttle = 0.2
+            if throttle_last >= THROTTLE_ZERO:
+                throttle_last = 0.2 + THROTTLE_ZERO
             else:
-                throttlelast = -0.2
-                kit.continuous_servo[1].throttle = -0.2
+                throttle_last = -0.2 + THROTTLE_ZERO
+            kit.continuous_servo[1].throttle = throttle_last
                 
             while True:
                 image, cnts = locate_sun()
                 if cnts != []:
                     print("FOUND SUN")
-                    kit.continuous_servo[1].throttle = 0
-                    throttlelast = 0
+                    throttle_last = THROTTLE_ZERO
+                    kit.continuous_servo[1].throttle = throttle_last
                     break
-                anglelost = anglelast + (4*SIGN)
-                anglelast = anglelost
-                if anglelost < 0:
-                    anglelost = 0
+                angle_lost = angle_last + (4 * SIGN)
+                angle_last = angle_lost
+                if angle_lost < 0:
+                    angle_lost = 0
                     SIGN = -SIGN
-                elif anglelost > MAX_ANGLE:
-                    anglelost = MAX_ANGLE
+                elif angle_lost > MAX_ANGLE:
+                    angle_lost = MAX_ANGLE
                     SIGN = -SIGN
-                else:
-                    anglelost = anglelost
-                print("anglelost", anglelost, "SIGN", SIGN, "THROTTLE", throttlelast)
-                print("angle: " + str(anglelost))
-                kit.servo[0].angle = anglelost
-                kit.servo[2].angle = anglelost
+
+                print("angle_lost", angle_lost, "SIGN", SIGN, "THROTTLE", throttle_last)
+                print("angle: " + str(angle_lost))
+                kit.servo[0].angle = angle_lost
+                kit.servo[2].angle = angle_lost
                 
-                if abs(throttlelast) < 0.08:
-                    throttlelast = 0.10
-                    kit.continuous_servo[1].throttle = throttlelast
+                if abs(throttle_last) < 0.08 + THROTTLE_ZERO:
+                    throttle_last = 0.10 + THROTTLE_ZERO
+                    kit.continuous_servo[1].throttle = throttle_last
 
-                output_string = str(time.time()) + ", 0\n"
-                f = open("./AreWeLookingAtTheSun/valid_frames" + CREATE_TIME + ".txt", "a")
-                f.write(output_string)
-                f.close()
-
-                log_frames(out, image, j)       
+                log_frames(out, image, j, 0)       
         
                 j += 1
                 time.sleep(0.2)
                 
-        cnts = contours.sort_contours(cnts)[0]
-
         # loop over the contours
+        cnts = contours.sort_contours(cnts)[0]
         for (i, c) in enumerate(cnts):
             # draw the bright spot on the image
             (x, y, w, h) = cv2.boundingRect(c)
             ((cX, cY), radius) = cv2.minEnclosingCircle(c)
-            cv2.circle(image, (int(cX), int(cY)), int(radius),
-                (0, 0, 255), 3)
-            cv2.circle(image, (int(X_CENTER), int(Y_CENTER)), 75, (0, 255, 0), 3) # need this conversion??
+            cv2.circle(image, (int(cX), int(cY)), int(radius), (0, 0, 255), 3)
+            cv2.circle(image, (int(X_CENTER), int(Y_CENTER)), MAX_RADIUS, (0, 255, 0), 3)
 
         # lets do some PID shiz
         Errorx = cX - X_CENTER
@@ -226,54 +227,55 @@ if __name__ == '__main__':
         Iy = Iy + ((Errory)*Ivaly)
         Dvalx = 0.0026
         Dvaly = 0.0002
-        Dx = (Errorxlast)*Dvalx
-        Dy = (Errorylast)*Dvaly
-        Errorxlast = Errorx
-        Errorylast = Errory
-        throttle1 = Px + Ix + Dx
+        Dx = (Ex_last)*Dvalx
+        Dy = (Ey_last)*Dvaly
+        Ex_last = Errorx
+        Ey_last = Errory
+        throttle_curr = Px + Ix + Dx + THROTTLE_ZERO
         PIDy = Py + Iy + Dy
-        angle0 = anglelast + PIDy
+        angle_curr = angle_last + PIDy
 
         if PIDy >= 0:
             SIGN = 1
         else:
             SIGN = -1
-        if angle0 < 0:
-            angle0 = 0
-        elif angle0 > MAX_ANGLE:
-            angle0 = MAX_ANGLE
-        else:
-            angle0 = angle0
-        if throttle1 < -maxthrottle:
-            throttle1 = -maxthrottle
-        elif throttle1 > maxthrottle:
-            throttle1 = maxthrottle
-        else:
-            throttle1 = throttle1
+        
+        # ensure angle is inbounds
+        if angle_curr < 0:
+            angle_curr = 0
+        elif angle_curr > MAX_ANGLE:
+            angle_curr = MAX_ANGLE
+
+        # ensure throttle is inbounds
+        if throttle_curr < -MAX_THROTTLE:
+            throttle_curr = -MAX_THROTTLE
+        elif throttle_curr > MAX_THROTTLE:
+            throttle_curr = MAX_THROTTLE
+
+        # on early iterations keep angle at midpoint
+        # TODO: necessary??
         if j < 5:
             kit.servo[0].angle = MAX_ANGLE/2
             kit.servo[2].angle = MAX_ANGLE/2
-
         else:
-            print("angle: " + str(angle0))
-            kit.servo[0].angle = angle0
-            kit.servo[2].angle = angle0+5.0
-            kit.continuous_servo[1].throttle = throttle1     
-        anglelast = angle0
-        throttlelast = throttle1
+            print("angle: " + str(angle_curr))
+            kit.servo[0].angle = angle_curr
+            kit.servo[2].angle = angle_curr + 5.0
+            kit.continuous_servo[1].throttle = throttle_curr
+            
+        # update last angle + throttle
+        angle_last = angle_curr
+        throttle_last = throttle_curr
         
-        print("P: ", Py, "I: ", Iy, "D: ", Dy, "throttle: ", throttle1)
+        print("P: ", Py, "I: ", Iy, "D: ", Dy, "throttle: ", throttle_curr)
         
-        radiusnewone = Errorx ** 2 + Errory ** 2
-        if radiusnewone <= 5625:
-            output_string = str(time.time()) + ", 1\n"
-        else:
-            output_string = str(time.time()) + ", 0\n"
-        f = open("./AreWeLookingAtTheSun/valid_frames" + CREATE_TIME + ".txt", "a")
-        f.write(output_string)
-        f.close()
+        # calculate distance from sun and decide whether it's close enough
+        accept_data = 1
+        distance = math.sqrt(Errorx ** 2 + Errory ** 2)
+        if distance >= MAX_RADIUS:
+            accept_data = 0
         
-        log_frames(out, image, j)
+        log_frames(out, image, j, accept_data)
 
         j += 1
         time.sleep(0.00)
