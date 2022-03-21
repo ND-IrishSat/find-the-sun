@@ -9,6 +9,8 @@
 # - rethink starting directory?
 # - rewrite logging function to file?
 # - catch any errors the camera might throw
+# - adjust backup frequency
+# - use shutil for copying??
 from venv import create
 from picamera import PiCamera
 from skimage import measure
@@ -100,25 +102,27 @@ def locate_sun():
 # accept_data: marks whether frame is valid or not
 def log_frames(out, image, j, accept_data):
     output_string = str(time.time()) + ", " + str(accept_data) + "\n"
-    f = open("./logs/valid_frames" + CREATE_TIME + ".txt", "a")
+    f = open("./logs/valid_frames-" + CREATE_TIME + ".txt", "a")
     f.write(output_string)
     f.close()
     # write output image to avi file
     out.write(image)
-    # save a frame every 5 minutes (3240 frames)
+    # save a frame and backup video every 5 minutes (3240 frames)
     if j % 3240 == 0:
         print("saving frames...")
         cv2.imwrite("./frames/frame.bmp", image)
-    # every 100 frames backup valid_frames file
-    if j % 100 == 0:
-        print("backing up")
-        os.system("cp " + "./logs/valid_frames" + CREATE_TIME + ".txt " + "./logs/backup" + "-" + str(time.time()) + ".txt")           
+    # backup every minute (628 frames)
+    if j % 648 == 0:
+        print("backing up logs...")
+        os.system("cp " + "./logs/valid_frames-" + CREATE_TIME + ".txt " + "./logs/backup-" + str(time.time()) + ".txt")
+        print("backing up video...")
+        os.system("cp " + "./videos/processed-" + CREATE_TIME + ".avi " + "./videos/backup-" + str(time.time()) + ".avi")      
 
 
 ## MAIN EXECUTION ##
 if __name__ == '__main__':
     # change cwd to location of script
-    os.chdir("/home/pi/Documents/PythonCodes/") # TODO: maybe change starting directory?
+    os.chdir("/home/pi/FindTheSunFinal/") # TODO: maybe change starting directory?
 
     # set up servos
     kit = ServoKit(channels=16)
@@ -148,14 +152,14 @@ if __name__ == '__main__':
     # set up video
     vs = VideoStream(usePiCamera=False, resolution=(X_RES,Y_RES)).start()
     time.sleep(0.3)
-    out = cv2.VideoWriter("./videos/processed" + str(time.time()) + ".avi", cv2.VideoWriter_fourcc('M','J','P','G'), FPS, (X_RES,Y_RES), isColor=True)
+    out = cv2.VideoWriter("./videos/processed-" + CREATE_TIME + ".avi", cv2.VideoWriter_fourcc('M','J','P','G'), FPS, (X_RES,Y_RES), isColor=True)
 
     # set up signal handler
     signal.signal(signal.SIGINT, stop_servos)
     # set up loop counter
     j = 0
     # set up file
-    f = open("./logs/valid_frames" + CREATE_TIME + ".txt", "w+")
+    f = open("./logs/valid_frames-" + CREATE_TIME + ".txt", "w+")
     f.write("header\n")
     f.close()
 
@@ -207,10 +211,10 @@ if __name__ == '__main__':
         # loop over the contours
         cnts = contours.sort_contours(cnts)[0]
         for (i, c) in enumerate(cnts):
-            # draw the bright spot on the image
-            (x, y, w, h) = cv2.boundingRect(c)
             ((cX, cY), radius) = cv2.minEnclosingCircle(c)
+            # draw red circle of min enclosing circle of bright spot
             cv2.circle(image, (int(cX), int(cY)), int(radius), (0, 0, 255), 3)
+            # draw green circle of acceptable radius
             cv2.circle(image, (int(X_CENTER), int(Y_CENTER)), MAX_RADIUS, (0, 255, 0), 3)
 
         # lets do some PID shiz
