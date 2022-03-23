@@ -14,6 +14,7 @@ from venv import create
 from picamera import PiCamera
 from skimage import measure
 from imutils import contours
+from shutil import copyfile
 import imutils
 from imutils.video import VideoStream
 import numpy as np
@@ -110,17 +111,16 @@ def log_frames(out, image, j, accept_data):
     if j % 3240 == 0:
         print("saving frames...")
         cv2.imwrite("./frames/frame.bmp", image)
+        print("backing up video...")
+        copyfile("/home/pi/FindTheSunFinal/videos/processed-" + CREATE_TIME + ".avi", "/home/pi/FindTheSunFinal/videos/backup-" + str(time.time()) + ".avi")
     # backup every minute (628 frames)
     if j % 648 == 0:
         print("backing up logs...")
-        os.system("cp " + "./logs/valid_frames-" + CREATE_TIME + ".txt " + "./logs/backup-" + str(time.time()) + ".txt")
-        print("backing up video...")
-        os.system("cp " + "./videos/processed-" + CREATE_TIME + ".avi " + "./videos/backup-" + str(time.time()) + ".avi")      
-
+        copyfile("/home/pi/FindTheSunFinal/logs/valid_frames-" + CREATE_TIME + ".txt", "/home/pi/FindTheSunFinal/logs/backup-" + str(time.time()) + ".txt")
 
 ## MAIN EXECUTION ##
 if __name__ == '__main__':
-    # change cwd to location of script
+    # change CWD to location of script
     os.chdir("/home/pi/FindTheSunFinal/")
 
     # set up servos
@@ -256,16 +256,11 @@ if __name__ == '__main__':
         elif throttle_curr > MAX_THROTTLE:
             throttle_curr = MAX_THROTTLE
 
-        # on early iterations keep angle at midpoint
-        # TODO: necessary??
-        if j < 5:
-            kit.servo[0].angle = MAX_ANGLE/2
-            kit.servo[2].angle = MAX_ANGLE/2
-        else:
-            print("angle: " + str(angle_curr))
-            kit.servo[0].angle = angle_curr
-            kit.servo[2].angle = angle_curr + 5.0
-            kit.continuous_servo[1].throttle = throttle_curr
+        # set servos to appropriate throttle and angle
+        print("angle: " + str(angle_curr))
+        kit.servo[0].angle = angle_curr
+        kit.servo[2].angle = angle_curr + 5.0
+        kit.continuous_servo[1].throttle = throttle_curr
             
         # update last angle + throttle
         angle_last = angle_curr
