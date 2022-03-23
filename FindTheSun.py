@@ -9,7 +9,6 @@
 # - rewrite logging function to file?
 # - catch any errors the camera might throw
 # - adjust backup frequency
-from venv import create
 from picamera import PiCamera
 from skimage import measure
 from imutils import contours
