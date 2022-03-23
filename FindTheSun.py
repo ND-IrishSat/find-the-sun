@@ -9,7 +9,6 @@
 # - rewrite logging function to file?
 # - catch any errors the camera might throw
 # - adjust backup frequency
-# - use shutil for copying??
 from venv import create
 from picamera import PiCamera
 from skimage import measure
@@ -30,6 +29,7 @@ import os
 THRESHOLD = 120
 SIGN = 1
 BLUR_RADIUS = 11
+MIN_ANGLE = 10
 MAX_ANGLE = 65
 X_RES = 640
 Y_RES = 480
@@ -187,8 +187,8 @@ if __name__ == '__main__':
                     break
                 angle_lost = angle_last + (2 * SIGN)
                 angle_last = angle_lost
-                if angle_lost < 0:
-                    angle_lost = 0
+                if angle_lost < MIN_ANGLE:
+                    angle_lost = MIN_ANGLE
                     SIGN = -SIGN
                 elif angle_lost > MAX_ANGLE:
                     angle_lost = MAX_ANGLE
@@ -245,8 +245,8 @@ if __name__ == '__main__':
             SIGN = -1
         
         # ensure angle is inbounds
-        if angle_curr < 0:
-            angle_curr = 0
+        if angle_curr < MIN_ANGLE:
+            angle_curr = MIN_ANGLE
         elif angle_curr > MAX_ANGLE:
             angle_curr = MAX_ANGLE
 
