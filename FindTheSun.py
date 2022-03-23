@@ -6,7 +6,6 @@
 # the entire sky is run.
 
 # TODO
-# - rethink starting directory?
 # - rewrite logging function to file?
 # - catch any errors the camera might throw
 # - adjust backup frequency
@@ -122,7 +121,7 @@ def log_frames(out, image, j, accept_data):
 ## MAIN EXECUTION ##
 if __name__ == '__main__':
     # change cwd to location of script
-    os.chdir("/home/pi/FindTheSunFinal/") # TODO: maybe change starting directory?
+    os.chdir("/home/pi/FindTheSunFinal/")
 
     # set up servos
     kit = ServoKit(channels=16)
@@ -172,6 +171,7 @@ if __name__ == '__main__':
         # if no countours, assume lost sun and start search protocol
         if cnts == []:
             print("LOST SUN :o")
+            # set throttle to constant value
             if throttle_last >= THROTTLE_ZERO:
                 throttle_last = 0.2 + THROTTLE_ZERO
             else:
@@ -185,7 +185,7 @@ if __name__ == '__main__':
                     throttle_last = THROTTLE_ZERO
                     kit.continuous_servo[1].throttle = throttle_last
                     break
-                angle_lost = angle_last + (4 * SIGN)
+                angle_lost = angle_last + (2 * SIGN)
                 angle_last = angle_lost
                 if angle_lost < 0:
                     angle_lost = 0
@@ -206,7 +206,7 @@ if __name__ == '__main__':
                 log_frames(out, image, j, 0)       
         
                 j += 1
-                time.sleep(0.2)
+                time.sleep(0.1)
                 
         # loop over the contours
         cnts = contours.sort_contours(cnts)[0]
