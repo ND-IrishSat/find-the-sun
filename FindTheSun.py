@@ -28,8 +28,8 @@ import os
 THRESHOLD = 120
 SIGN = 1
 BLUR_RADIUS = 11
-MIN_ANGLE = 10
-MAX_ANGLE = 65
+MIN_ANGLE = 30
+MAX_ANGLE = 80
 X_RES = 640
 Y_RES = 480
 FPS = 30
@@ -130,8 +130,8 @@ if __name__ == '__main__':
     # can tune the max and min pwm to max the servo go to desired angles
     kit.servo[0].set_pulse_width_range(500, 2500)
     kit.servo[2].set_pulse_width_range(500, 2500)
-    kit.servo[0].angle = MAX_ANGLE/2
-    kit.servo[2].angle = MAX_ANGLE/2
+    kit.servo[0].angle = (MIN_ANGLE + MAX_ANGLE) / 2
+    kit.servo[2].angle = (MIN_ANGLE + MAX_ANGLE) / 2
     time.sleep(0.3)
     kit.continuous_servo[1].throttle = 1 + THROTTLE_ZERO
     time.sleep(0.01)
