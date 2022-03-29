@@ -281,5 +281,4 @@ if __name__ == '__main__':
 
         # catch any exceptions log them and continue
         except Exception as e:
-            print(e.message)
-            continue
+            print(e)
