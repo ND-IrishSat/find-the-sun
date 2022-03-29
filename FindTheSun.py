@@ -165,115 +165,121 @@ if __name__ == '__main__':
     # main loop
     while True:
         # get image and contours
-        image, cnts = locate_sun()
+        try:
+            image, cnts = locate_sun()
+            # if no countours, assume lost sun and start search protocol
+            if cnts == []:
+                print("LOST SUN :o")
+                # set throttle to constant value
+                if throttle_last >= THROTTLE_ZERO:
+                    throttle_last = 0.2 + THROTTLE_ZERO
+                else:
+                    throttle_last = -0.2 + THROTTLE_ZERO
+                kit.continuous_servo[1].throttle = throttle_last
+                    
+                while True:
+                    image, cnts = locate_sun()
 
-        # if no countours, assume lost sun and start search protocol
-        if cnts == []:
-            print("LOST SUN :o")
-            # set throttle to constant value
-            if throttle_last >= THROTTLE_ZERO:
-                throttle_last = 0.2 + THROTTLE_ZERO
-            else:
-                throttle_last = -0.2 + THROTTLE_ZERO
-            kit.continuous_servo[1].throttle = throttle_last
-                
-            while True:
-                image, cnts = locate_sun()
-                if cnts != []:
-                    print("FOUND SUN")
-                    throttle_last = THROTTLE_ZERO
-                    kit.continuous_servo[1].throttle = throttle_last
-                    break
-                angle_lost = angle_last + (2 * SIGN)
-                angle_last = angle_lost
-                if angle_lost < MIN_ANGLE:
-                    angle_lost = MIN_ANGLE
-                    SIGN = -SIGN
-                elif angle_lost > MAX_ANGLE:
-                    angle_lost = MAX_ANGLE
-                    SIGN = -SIGN
+                    if cnts != []:
+                        print("FOUND SUN")
+                        throttle_last = THROTTLE_ZERO
+                        kit.continuous_servo[1].throttle = throttle_last
+                        break
+                    angle_lost = angle_last + (2 * SIGN)
+                    angle_last = angle_lost
+                    if angle_lost < MIN_ANGLE:
+                        angle_lost = MIN_ANGLE
+                        SIGN = -SIGN
+                    elif angle_lost > MAX_ANGLE:
+                        angle_lost = MAX_ANGLE
+                        SIGN = -SIGN
 
-                print("angle_lost", angle_lost, "SIGN", SIGN, "THROTTLE", throttle_last)
-                print("angle: " + str(angle_lost))
-                kit.servo[0].angle = angle_lost
-                kit.servo[2].angle = angle_lost
-                
-                if abs(throttle_last) < 0.08 + THROTTLE_ZERO:
-                    throttle_last = 0.10 + THROTTLE_ZERO
-                    kit.continuous_servo[1].throttle = throttle_last
+                    print("angle_lost", angle_lost, "SIGN", SIGN, "THROTTLE", throttle_last)
+                    print("angle: " + str(angle_lost))
+                    kit.servo[0].angle = angle_lost
+                    kit.servo[2].angle = angle_lost
+                    
+                    if abs(throttle_last) < 0.08 + THROTTLE_ZERO:
+                        throttle_last = 0.10 + THROTTLE_ZERO
+                        kit.continuous_servo[1].throttle = throttle_last
 
-                log_frames(out, image, j, 0)       
-        
-                j += 1
-                time.sleep(0.1)
-                
-        # loop over the contours
-        cnts = contours.sort_contours(cnts)[0]
-        for (i, c) in enumerate(cnts):
-            ((cX, cY), radius) = cv2.minEnclosingCircle(c)
-            # draw red circle of min enclosing circle of bright spot
-            cv2.circle(image, (int(cX), int(cY)), int(radius), (0, 0, 255), 3)
-            # draw green circle of acceptable radius
-            cv2.circle(image, (int(X_CENTER), int(Y_CENTER)), MAX_RADIUS, (0, 255, 0), 3)
-
-        # lets do some PID shiz
-        Errorx = cX - X_CENTER
-        Errory = cY - Y_CENTER
-
-        Pvalx = 0.0012
-        Pvaly = 0.015
-        Px = Pvalx * Errorx
-        Py = Pvaly * Errory   
-        Ivalx = 0.00015
-        Ivaly = 0.0001
-        Ix = Ix + ((Errorx)*Ivalx)
-        Iy = Iy + ((Errory)*Ivaly)
-        Dvalx = 0.0026
-        Dvaly = 0.0002
-        Dx = (Ex_last)*Dvalx
-        Dy = (Ey_last)*Dvaly
-        Ex_last = Errorx
-        Ey_last = Errory
-        throttle_curr = Px + Ix + Dx + THROTTLE_ZERO
-        PIDy = Py + Iy + Dy
-        angle_curr = angle_last + PIDy
-
-        if PIDy >= 0:
-            SIGN = 1
-        else:
-            SIGN = -1
-        
-        # ensure angle is inbounds
-        if angle_curr < MIN_ANGLE:
-            angle_curr = MIN_ANGLE
-        elif angle_curr > MAX_ANGLE:
-            angle_curr = MAX_ANGLE
-
-        # ensure throttle is inbounds
-        if throttle_curr < -MAX_THROTTLE:
-            throttle_curr = -MAX_THROTTLE
-        elif throttle_curr > MAX_THROTTLE:
-            throttle_curr = MAX_THROTTLE
-
-        # set servos to appropriate throttle and angle
-        print("angle: " + str(angle_curr))
-        kit.servo[0].angle = angle_curr
-        kit.servo[2].angle = angle_curr + 5.0
-        kit.continuous_servo[1].throttle = throttle_curr
+                    log_frames(out, image, j, 0)       
             
-        # update last angle + throttle
-        angle_last = angle_curr
-        throttle_last = throttle_curr
-        
-        print("P: ", Py, "I: ", Iy, "D: ", Dy, "throttle: ", throttle_curr)
-        
-        # calculate distance from sun and decide whether it's close enough
-        accept_data = 1
-        distance = math.sqrt(Errorx ** 2 + Errory ** 2)
-        if distance >= MAX_RADIUS:
-            accept_data = 0
-        
-        log_frames(out, image, j, accept_data)
+                    j += 1
+                    time.sleep(0.1)
+                    
+            # loop over the contours
+            cnts = contours.sort_contours(cnts)[0]
+            for (i, c) in enumerate(cnts):
+                ((cX, cY), radius) = cv2.minEnclosingCircle(c)
+                # draw red circle of min enclosing circle of bright spot
+                cv2.circle(image, (int(cX), int(cY)), int(radius), (0, 0, 255), 3)
+                # draw green circle of acceptable radius
+                cv2.circle(image, (int(X_CENTER), int(Y_CENTER)), MAX_RADIUS, (0, 255, 0), 3)
 
-        j += 1
-        time.sleep(0.00)
+            # lets do some PID shiz
+            Errorx = cX - X_CENTER
+            Errory = cY - Y_CENTER
+
+            Pvalx = 0.0012
+            Pvaly = 0.015
+            Px = Pvalx * Errorx
+            Py = Pvaly * Errory   
+            Ivalx = 0.00015
+            Ivaly = 0.0001
+            Ix = Ix + ((Errorx)*Ivalx)
+            Iy = Iy + ((Errory)*Ivaly)
+            Dvalx = 0.0026
+            Dvaly = 0.0002
+            Dx = (Ex_last)*Dvalx
+            Dy = (Ey_last)*Dvaly
+            Ex_last = Errorx
+            Ey_last = Errory
+            throttle_curr = Px + Ix + Dx + THROTTLE_ZERO
+            PIDy = Py + Iy + Dy
+            angle_curr = angle_last + PIDy
+
+            if PIDy >= 0:
+                SIGN = 1
+            else:
+                SIGN = -1
+            
+            # ensure angle is inbounds
+            if angle_curr < MIN_ANGLE:
+                angle_curr = MIN_ANGLE
+            elif angle_curr > MAX_ANGLE:
+                angle_curr = MAX_ANGLE
+
+            # ensure throttle is inbounds
+            if throttle_curr < -MAX_THROTTLE:
+                throttle_curr = -MAX_THROTTLE
+            elif throttle_curr > MAX_THROTTLE:
+                throttle_curr = MAX_THROTTLE
+
+            # set servos to appropriate throttle and angle
+            print("angle: " + str(angle_curr))
+            kit.servo[0].angle = angle_curr
+            kit.servo[2].angle = angle_curr + 5.0
+            kit.continuous_servo[1].throttle = throttle_curr
+                
+            # update last angle + throttle
+            angle_last = angle_curr
+            throttle_last = throttle_curr
+            
+            print("P: ", Py, "I: ", Iy, "D: ", Dy, "throttle: ", throttle_curr)
+            
+            # calculate distance from sun and decide whether it's close enough
+            accept_data = 1
+            distance = math.sqrt(Errorx ** 2 + Errory ** 2)
+            if distance >= MAX_RADIUS:
+                accept_data = 0
+            
+            log_frames(out, image, j, accept_data)
+
+            j += 1
+            time.sleep(0.00)
+
+        # catch any exceptions log them and continue
+        except Exception as e:
+            print(e.message)
+            continue
