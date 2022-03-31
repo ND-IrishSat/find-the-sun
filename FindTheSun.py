@@ -8,6 +8,7 @@
 # TODO
 # -record more frames?
 # -rewrite lost sun code?
+# -measure fps!
 from picamera import PiCamera
 from skimage import measure
 from imutils import contours
