@@ -6,9 +6,8 @@
 # the entire sky is run.
 
 # TODO
-# - rewrite logging function to file?
-# - catch any errors the camera might throw
-# - adjust backup frequency
+# - record more frames?
+# - rewrite lost sun code?
 from picamera import PiCamera
 from skimage import measure
 from imutils import contours
@@ -32,7 +31,8 @@ MIN_ANGLE = 30
 MAX_ANGLE = 80
 X_RES = 640
 Y_RES = 480
-FPS = 30
+FPS_VID = 30
+FPS = 11
 WHITE = 255
 THROTTLE_ZERO = -0.1
 MAX_RADIUS = 75
@@ -100,22 +100,26 @@ def locate_sun():
 # j: iteration of loop, decides whether to backup or save
 # accept_data: marks whether frame is valid or not
 def log_frames(out, image, j, accept_data):
+    # demarcate valid frames
     output_string = str(time.time()) + ", " + str(accept_data) + "\n"
     f = open("./logs/valid_frames-" + CREATE_TIME + ".txt", "a")
     f.write(output_string)
     f.close()
-    # write output image to avi file
-    out.write(image)
-    # save a frame and backup video every 5 minutes (3240 frames)
-    if j % 3240 == 0:
-        print("saving frames...")
-        cv2.imwrite("./frames/frame.bmp", image)
-        print("backing up video...")
-        copyfile("/home/pi/FindTheSunFinal/videos/processed-" + CREATE_TIME + ".avi", "/home/pi/FindTheSunFinal/videos/backup-" + str(time.time()) + ".avi")
-    # backup every minute (628 frames)
-    if j % 648 == 0:
-        print("backing up logs...")
-        copyfile("/home/pi/FindTheSunFinal/logs/valid_frames-" + CREATE_TIME + ".txt", "/home/pi/FindTheSunFinal/logs/backup-" + str(time.time()) + ".txt")
+
+    # save a frame to video every 15 seconds
+    if j % (10 * FPS) == 0:
+        print("writing image to video file...")
+        out.write(image)
+        # back up logs every 60 seconds
+        if j % (60 * FPS) == 0:
+            print("backing up logs...")
+            copyfile("/home/pi/FindTheSunFinal/logs/valid_frames-" + CREATE_TIME + ".txt", "/home/pi/FindTheSunFinal/logs/backup-" + str(time.time()) + ".txt")
+            # save a frame and backup video every 300 seconds (5 minutes)
+            if j % (300 * FPS) == 0:
+                print("saving frames...")
+                cv2.imwrite("./frames/frame-" + str(time.time()) + ".bmp", image)
+                print("backing up video...")
+                copyfile("/home/pi/FindTheSunFinal/videos/processed-" + CREATE_TIME + ".avi", "/home/pi/FindTheSunFinal/videos/backup-" + str(time.time()) + ".avi")
 
 ## MAIN EXECUTION ##
 if __name__ == '__main__':
@@ -150,10 +154,12 @@ if __name__ == '__main__':
     # set up video
     vs = VideoStream(usePiCamera=False, resolution=(X_RES,Y_RES)).start()
     time.sleep(0.3)
-    out = cv2.VideoWriter("./videos/processed-" + CREATE_TIME + ".avi", cv2.VideoWriter_fourcc('M','J','P','G'), FPS, (X_RES,Y_RES), isColor=True)
+    out = cv2.VideoWriter("./videos/processed-" + CREATE_TIME + ".avi", cv2.VideoWriter_fourcc('M','J','P','G'), FPS_VID, (X_RES,Y_RES), isColor=True)
 
     # set up signal handler
     signal.signal(signal.SIGINT, stop_servos)
+    signal.signal(signal.SIGTERM, stop_servos)
+
     # set up loop counter
     j = 0
     # set up file
@@ -194,8 +200,7 @@ if __name__ == '__main__':
                         angle_lost = MAX_ANGLE
                         SIGN = -SIGN
 
-                    print("angle_lost", angle_lost, "SIGN", SIGN, "THROTTLE", throttle_last)
-                    print("angle: " + str(angle_lost))
+                    print("sign: ", SIGN, "throttle: ", throttle_last, "angle: ", angle_lost)
                     kit.servo[0].angle = angle_lost
                     kit.servo[2].angle = angle_lost
                     
@@ -257,7 +262,6 @@ if __name__ == '__main__':
                 throttle_curr = MAX_THROTTLE
 
             # set servos to appropriate throttle and angle
-            print("angle: " + str(angle_curr))
             kit.servo[0].angle = angle_curr
             kit.servo[2].angle = angle_curr + 5.0
             kit.continuous_servo[1].throttle = throttle_curr
@@ -266,7 +270,7 @@ if __name__ == '__main__':
             angle_last = angle_curr
             throttle_last = throttle_curr
             
-            print("P: ", Py, "I: ", Iy, "D: ", Dy, "throttle: ", throttle_curr)
+            print("P:", Py, "I:", Iy, "D:", Dy, "throttle:", throttle_curr, "angle:", angle_curr)
             
             # calculate distance from sun and decide whether it's close enough
             accept_data = 1
