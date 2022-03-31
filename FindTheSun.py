@@ -6,18 +6,18 @@
 # the entire sky is run.
 
 # TODO
-# - record more frames?
-# - rewrite lost sun code?
+# -record more frames?
+# -rewrite lost sun code?
 from picamera import PiCamera
 from skimage import measure
 from imutils import contours
 from shutil import copyfile
-import imutils
+from adafruit_servokit import ServoKit
 from imutils.video import VideoStream
 import numpy as np
 import RPi.GPIO as GPIO
+import imutils
 import time
-from adafruit_servokit import ServoKit
 import cv2
 import math
 import signal
@@ -25,7 +25,6 @@ import os
 
 ## GLOBALS ##
 THRESHOLD = 120
-SIGN = 1
 BLUR_RADIUS = 11
 MIN_ANGLE = 30
 MAX_ANGLE = 80
@@ -41,6 +40,10 @@ X_CENTER = X_RES/2
 Y_CENTER = Y_RES/2
 CREATE_TIME = str(time.time())
 MAX_THROTTLE = 0.3 + THROTTLE_ZERO
+
+# mutable globals
+j = 0
+sign = 1
 
 ## FUNCTIONS ##
 # signal handler for ctrl+c
@@ -92,6 +95,7 @@ def locate_sun():
     # from left to right
     cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cnts = imutils.grab_contours(cnts)
+    j += 1
     return image, cnts
 
 # logging function
@@ -99,7 +103,7 @@ def locate_sun():
 # image: image to be logged
 # j: iteration of loop, decides whether to backup or save
 # accept_data: marks whether frame is valid or not
-def log_frames(out, image, j, accept_data):
+def log_frames(out, image, accept_data):
     # demarcate valid frames
     output_string = str(time.time()) + ", " + str(accept_data) + "\n"
     f = open("./logs/valid_frames-" + CREATE_TIME + ".txt", "a")
@@ -160,8 +164,6 @@ if __name__ == '__main__':
     signal.signal(signal.SIGINT, stop_servos)
     signal.signal(signal.SIGTERM, stop_servos)
 
-    # set up loop counter
-    j = 0
     # set up file
     f = open("./logs/valid_frames-" + CREATE_TIME + ".txt", "w+")
     f.write("header\n")
@@ -182,25 +184,19 @@ if __name__ == '__main__':
                 else:
                     throttle_last = -0.2 + THROTTLE_ZERO
                 kit.continuous_servo[1].throttle = throttle_last
-                    
-                while True:
-                    image, cnts = locate_sun()
-
-                    if cnts != []:
-                        print("FOUND SUN")
-                        throttle_last = THROTTLE_ZERO
-                        kit.continuous_servo[1].throttle = throttle_last
-                        break
-                    angle_lost = angle_last + (2 * SIGN)
+                   
+                image, cnts = locate_sun() 
+                while cnts == []:
+                    angle_lost = angle_last + (2 * sign)
                     angle_last = angle_lost
                     if angle_lost < MIN_ANGLE:
                         angle_lost = MIN_ANGLE
-                        SIGN = -SIGN
+                        sign = -sign
                     elif angle_lost > MAX_ANGLE:
                         angle_lost = MAX_ANGLE
-                        SIGN = -SIGN
+                        sign = -sign
 
-                    print("sign: ", SIGN, "throttle: ", throttle_last, "angle: ", angle_lost)
+                    print("sign: ", sign, "throttle: ", throttle_last, "angle: ", angle_lost)
                     kit.servo[0].angle = angle_lost
                     kit.servo[2].angle = angle_lost
                     
@@ -208,10 +204,13 @@ if __name__ == '__main__':
                         throttle_last = 0.10 + THROTTLE_ZERO
                         kit.continuous_servo[1].throttle = throttle_last
 
-                    log_frames(out, image, j, 0)       
+                    log_frames(out, image, 0) 
             
-                    j += 1
                     time.sleep(0.1)
+
+                print("FOUND SUN")
+                throttle_last = THROTTLE_ZERO
+                kit.continuous_servo[1].throttle = throttle_last 
                     
             # loop over the contours
             cnts = contours.sort_contours(cnts)[0]
@@ -245,9 +244,9 @@ if __name__ == '__main__':
             angle_curr = angle_last + PIDy
 
             if PIDy >= 0:
-                SIGN = 1
+                sign = 1
             else:
-                SIGN = -1
+                sign = -1
             
             # ensure angle is inbounds
             if angle_curr < MIN_ANGLE:
@@ -278,11 +277,8 @@ if __name__ == '__main__':
             if distance >= MAX_RADIUS:
                 accept_data = 0
             
-            log_frames(out, image, j, accept_data)
-
-            j += 1
+            log_frames(out, image, accept_data)
             time.sleep(0.00)
-
         # catch any exceptions log them and continue
         except Exception as e:
             print(e)
