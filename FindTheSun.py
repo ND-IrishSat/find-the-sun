@@ -6,8 +6,6 @@
 # the entire sky is run.
 
 # TODO
-# -record more frames?
-# -rewrite lost sun code?
 # -measure fps!
 from picamera import PiCamera
 from skimage import measure
@@ -66,7 +64,7 @@ def locate_sun():
 
     labels = measure.label(thresh, background=0, connectivity=2)
     mask = np.zeros(thresh.shape, dtype="uint8")
-    numPixelMax=0
+    numPixelMax = 0
 
     for label in np.unique(labels):
         if label == 0:
@@ -110,18 +108,18 @@ def log_frames(out, image, accept_data, j):
     f.write(output_string)
     f.close()
 
-    # save a frame to video every 15 seconds
+    # save a frame to video and independently every 10 seconds
     if j % (10 * FPS) == 0:
         print("writing image to video file...")
         out.write(image)
+        print("saving a frame...")
+        cv2.imwrite("./frames/frame-" + str(time.time()) + ".bmp", image)
         # back up logs every 60 seconds
         if j % (60 * FPS) == 0:
             print("backing up logs...")
             copyfile("/home/pi/FindTheSunFinal/logs/valid_frames-" + CREATE_TIME + ".txt", "/home/pi/FindTheSunFinal/logs/backup-" + str(time.time()) + ".txt")
-            # save a frame and backup video every 300 seconds (5 minutes)
+            # backup video every 300 seconds (5 minutes)
             if j % (300 * FPS) == 0:
-                print("saving frames...")
-                cv2.imwrite("./frames/frame-" + str(time.time()) + ".bmp", image)
                 print("backing up video...")
                 copyfile("/home/pi/FindTheSunFinal/videos/processed-" + CREATE_TIME + ".avi", "/home/pi/FindTheSunFinal/videos/backup-" + str(time.time()) + ".avi")
     return j+1
