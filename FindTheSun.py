@@ -101,7 +101,8 @@ def locate_sun():
 # image: image to be logged
 # j: iteration of loop, decides whether to backup or save
 # accept_data: marks whether frame is valid or not
-def log_frames(out, image, accept_data, j):
+def log_frames(out, image, accept_data):
+    global j
     # demarcate valid frames
     output_string = str(time.time()) + ", " + str(accept_data) + "\n"
     f = open("./logs/valid_frames-" + CREATE_TIME + ".txt", "a")
@@ -122,7 +123,8 @@ def log_frames(out, image, accept_data, j):
             if j % (300 * FPS) == 0:
                 print("backing up video...")
                 copyfile("/home/pi/FindTheSunFinal/videos/processed-" + CREATE_TIME + ".avi", "/home/pi/FindTheSunFinal/videos/backup-" + str(time.time()) + ".avi")
-    return j+1
+    # increment j
+    j += 1
 
 ## MAIN EXECUTION ##
 if __name__ == '__main__':
@@ -203,7 +205,7 @@ if __name__ == '__main__':
                         throttle_last = 0.10 + THROTTLE_ZERO
                         kit.continuous_servo[1].throttle = throttle_last
 
-                    j = log_frames(out, image, 0, j) 
+                    log_frames(out, image, 0)
             
                     time.sleep(0.1)
 
@@ -276,7 +278,7 @@ if __name__ == '__main__':
             if distance >= MAX_RADIUS:
                 accept_data = 0
             
-            j = log_frames(out, image, accept_data, j)
+            log_frames(out, image, accept_data)
             time.sleep(0.00)
         # catch any exceptions log them and continue
         except Exception as e:
