@@ -159,7 +159,7 @@ if __name__ == '__main__':
     Ey_last = 0
 
     # initialize throttle and angle values
-    angle_last = MAX_ANGLE/2
+    angle_last = (MIN_ANGLE + MAX_ANGLE) / 2
     throttle_last = THROTTLE_ZERO
 
     # set up video stream
