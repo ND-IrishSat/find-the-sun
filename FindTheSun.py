@@ -109,6 +109,7 @@ def log_frames(image, accept_data, j):
     # demarcate valid frames
     output_string = str(time.time()) + ", " + str(accept_data) + "\n"
     f = open(LOGS_DIR + "/valid_frames-" + CREATE_TIME + ".txt", "a")
+    print(output_string)
     f.write(output_string)
     f.close()
 
