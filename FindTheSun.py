@@ -34,11 +34,15 @@ FPS = 11
 WHITE = 255
 THROTTLE_ZERO = -0.1
 MAX_RADIUS = 75
+CWD = "/home/pi/FindTheSunFinal/"  
+COMMS_DIR = "./frames/comms-frame"
 
 X_CENTER = X_RES/2
 Y_CENTER = Y_RES/2
 CREATE_TIME = str(time.time())
 MAX_THROTTLE = 0.3 + THROTTLE_ZERO
+FRAMES_DIR = "./frames/frames-" + CREATE_TIME
+LOGS_DIR = "./logs/logs-" + CREATE_TIME
 
 # mutable globals
 j = 0
@@ -97,39 +101,39 @@ def locate_sun():
     return image, cnts
 
 # logging function
-# out: cv2.VideoWriter object
 # image: image to be logged
-# j: iteration of loop, decides whether to backup or save
 # accept_data: marks whether frame is valid or not
-def log_frames(out, image, accept_data):
-    global j
+# j: loop counter, to be iterated and returned at end 
+def log_frames(image, accept_data, j):
     # demarcate valid frames
     output_string = str(time.time()) + ", " + str(accept_data) + "\n"
-    f = open("./logs/valid_frames-" + CREATE_TIME + ".txt", "a")
+    f = open(LOGS_DIR + "/valid_frames-" + CREATE_TIME + ".txt", "a")
     f.write(output_string)
     f.close()
 
-    # save a frame to video and independently every 10 seconds
+    # save a frame every 10 seconds
     if j % (10 * FPS) == 0:
-        print("writing image to video file...")
-        out.write(image)
         print("saving a frame...")
-        cv2.imwrite("./frames/frame-" + str(time.time()) + ".bmp", image)
-        # back up logs every 60 seconds
-        if j % (60 * FPS) == 0:
-            print("backing up logs...")
-            copyfile("/home/pi/FindTheSunFinal/logs/valid_frames-" + CREATE_TIME + ".txt", "/home/pi/FindTheSunFinal/logs/backup-" + str(time.time()) + ".txt")
-            # backup video every 300 seconds (5 minutes)
-            if j % (300 * FPS) == 0:
-                print("backing up video...")
-                copyfile("/home/pi/FindTheSunFinal/videos/processed-" + CREATE_TIME + ".avi", "/home/pi/FindTheSunFinal/videos/backup-" + str(time.time()) + ".avi")
+        cv2.imwrite(FRAMES_DIR + "/" + str(time.time()) + ".bmp", image)
+    # back up logs every 61 seconds
+    if j % (61 * FPS) == 0:
+        print("backing up logs...")
+        copyfile(LOGS_DIR + "/valid_frames-" + CREATE_TIME + ".txt", LOGS_DIR + "/backup-" + str(time.time()) + ".txt")    
+    # save frame for comms every 5 minutes
+    if j % (301 * FPS) == 0:
+        print("saving a frame for comms...")
+        cv2.imwrite(COMMS_DIR + "/frame.bmp", image)
+
     # increment j
-    j += 1
+    return j+1
 
 ## MAIN EXECUTION ##
 if __name__ == '__main__':
     # change CWD to location of script
-    os.chdir("/home/pi/FindTheSunFinal/")
+    os.chdir(CWD)
+    # make subdirectories
+    os.mkdir(LOGS_DIR)
+    os.mkdir(FRAMES_DIR)
 
     # set up servos
     kit = ServoKit(channels=16)
@@ -156,17 +160,16 @@ if __name__ == '__main__':
     angle_last = MAX_ANGLE/2
     throttle_last = THROTTLE_ZERO
 
-    # set up video
+    # set up video stream
     vs = VideoStream(usePiCamera=False, resolution=(X_RES,Y_RES)).start()
     time.sleep(0.3)
-    out = cv2.VideoWriter("./videos/processed-" + CREATE_TIME + ".avi", cv2.VideoWriter_fourcc('M','J','P','G'), FPS_VID, (X_RES,Y_RES), isColor=True)
-
+ 
     # set up signal handler
     signal.signal(signal.SIGINT, stop_servos)
     signal.signal(signal.SIGTERM, stop_servos)
 
     # set up file
-    f = open("./logs/valid_frames-" + CREATE_TIME + ".txt", "w+")
+    f = open(LOGS_DIR + "/valid_frames-" + CREATE_TIME + ".txt", "w+")
     f.write("header\n")
     f.close()
 
@@ -205,7 +208,7 @@ if __name__ == '__main__':
                         throttle_last = 0.10 + THROTTLE_ZERO
                         kit.continuous_servo[1].throttle = throttle_last
 
-                    log_frames(out, image, 0)
+                    j = log_frames(image, 0, j)
             
                     time.sleep(0.1)
 
@@ -278,7 +281,7 @@ if __name__ == '__main__':
             if distance >= MAX_RADIUS:
                 accept_data = 0
             
-            log_frames(out, image, accept_data)
+            j = log_frames(image, accept_data, j)
             time.sleep(0.00)
         # catch any exceptions log them and continue
         except Exception as e:
