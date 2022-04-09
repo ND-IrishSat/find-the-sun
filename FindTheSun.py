@@ -41,6 +41,7 @@ X_CENTER = X_RES/2
 Y_CENTER = Y_RES/2
 CREATE_TIME = str(time.time())
 MAX_THROTTLE = 0.3 + THROTTLE_ZERO
+MIN_THROTTLE = -0.3 + THROTTLE_ZERO
 FRAMES_DIR = "./frames/frames-" + CREATE_TIME
 LOGS_DIR = "./logs/logs-" + CREATE_TIME
 
@@ -259,8 +260,8 @@ if __name__ == '__main__':
                 angle_curr = MAX_ANGLE
 
             # ensure throttle is inbounds
-            if throttle_curr < -MAX_THROTTLE:
-                throttle_curr = -MAX_THROTTLE
+            if throttle_curr < MIN_THROTTLE:
+                throttle_curr = MIN_THROTTLE
             elif throttle_curr > MAX_THROTTLE:
                 throttle_curr = MAX_THROTTLE
 
